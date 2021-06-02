@@ -10,7 +10,7 @@ using Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Orleans;
 
-namespace FanoutAPIV2.Controllers
+namespace FanoutAPIV1.Controllers
 {
     [ApiController]
     [Route("[controller]")]
@@ -22,14 +22,16 @@ namespace FanoutAPIV2.Controllers
         
         private readonly string _fanoutHelperAPIHost = Environment.GetEnvironmentVariable("FANOUT-HELPER-API-HOST");
         
-        private readonly IHttpClientFactory _clientFactory;
-        
-        public HelloWorldController(
-            IClusterClient clusterClient,
-            IHttpClientFactory clientFactory)
+        public HelloWorldController(IClusterClient clusterClient)
         {
             _clusterClient = clusterClient;
-            _generator = new Random(); 
+            _generator = new Random();
+        }
+
+        private readonly IHttpClientFactory _clientFactory;
+
+        public HelloWorldController(IHttpClientFactory clientFactory)
+        {
             _clientFactory = clientFactory;
         }
 

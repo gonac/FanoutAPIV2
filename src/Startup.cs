@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Prometheus;
 
-namespace FanoutAPIV2
+namespace FanoutAPIV1
 {
     public class Startup
     {

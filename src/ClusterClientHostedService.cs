@@ -4,9 +4,11 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Clustering.Kubernetes;
 using Orleans.Configuration;
 using Orleans.Runtime;
 
@@ -16,7 +18,7 @@ namespace FanoutAPIV2
     {
         private readonly ILogger<ClusterClientHostedService> _logger;
 
-        public IClusterClient Client { get; }
+        public IClusterClient Client { get; set; }
 
         public ClusterClientHostedService(
             ILogger<ClusterClientHostedService> logger,
@@ -24,24 +26,54 @@ namespace FanoutAPIV2
         {
             _logger = logger;
             _logger.LogInformation("creating cluster client...");
+            
+            var env = Environment.GetEnvironmentVariable("ENV");
 
+            if (env is "kube")
+            {
+                KubeClientBuilder(loggerProvider);
+            }
+            else
+            { 
+                ClientBuilder(loggerProvider);
+            }
+            _logger.LogInformation("cluster client created");
+        }
+
+        private void ClientBuilder(ILoggerProvider loggerProvider)
+        {
             var advertisedIp = Environment.GetEnvironmentVariable("ADVERTISEDIP");
             var siloAdvertisedIpAddress = advertisedIp == null ? GetLocalIpAddress() : IPAddress.Parse(advertisedIp);
-            var extractedGatewayPort = Environment.GetEnvironmentVariable("GATEWAYPORT") ?? throw new Exception("Gateway port cannot be null"); 
+            var extractedGatewayPort = Environment.GetEnvironmentVariable("GATEWAYPORT") ??
+                                       throw new Exception("Gateway port cannot be null");
             var siloGatewayPort = int.Parse(extractedGatewayPort);
 
             Client = new ClientBuilder()
                 .Configure<ClusterOptions>(clusterOptions =>
                 {
-                    clusterOptions.ClusterId = "cluster-of-silos";
-                    clusterOptions.ServiceId = "hello-world-service";
+                    clusterOptions.ClusterId = "fanout-cluster";
+                    clusterOptions.ServiceId = "fanout-service";
                 })
                 .UseStaticClustering(new IPEndPoint(siloAdvertisedIpAddress, siloGatewayPort))
                 .ConfigureLogging(loggingBuilder =>
                     loggingBuilder.SetMinimumLevel(LogLevel.Information).AddProvider(loggerProvider))
                 .Build();
+        }
+        
+        private void KubeClientBuilder(ILoggerProvider loggerProvider)
+        {
 
-            _logger.LogInformation("cluster client created");
+            Client = new ClientBuilder()
+                .Configure<ClusterOptions>(clusterOptions =>
+                {
+                    clusterOptions.ClusterId = "fanout-cluster";
+                    clusterOptions.ServiceId = "fanout-service";
+                })
+                .UseKubeGatewayListProvider()
+                .ConfigureApplicationParts(applicationPartManager => applicationPartManager.AddApplicationPart(typeof(IWorker).Assembly).WithReferences())
+                .ConfigureLogging(loggingBuilder =>
+                    loggingBuilder.SetMinimumLevel(LogLevel.Information).AddProvider(loggerProvider))
+                .Build();
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -127,5 +159,7 @@ namespace FanoutAPIV2
 
             return null;
         }
+        
+        
     }
 }

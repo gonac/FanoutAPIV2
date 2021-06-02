@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace FanoutAPIV2
+namespace FanoutAPIV1
 {
     public class Program
     {
